@@ -1,7 +1,16 @@
 import Link from "next/link";
-import { mockCategories, mockQuizzes } from "@/lib/mock-data";
+import { getAllQuizzes } from "@/services/quiz.service";
 
-export default function QuizPage() {
+export default async function QuizPage() {
+  const quizzes = await getAllQuizzes();
+  const categoryNames = [
+    ...new Set(
+      quizzes
+        .map((quiz) => quiz.categoryName)
+        .filter((name): name is string => Boolean(name)),
+    ),
+  ];
+
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-6 py-10">
       <section className="flex flex-wrap items-end justify-between gap-4">
@@ -29,8 +38,8 @@ export default function QuizPage() {
         </select>
         <select className="rounded-md border border-[var(--border)] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--primary)]/25">
           <option>All categories</option>
-          {mockCategories.map((category) => (
-            <option key={category.id}>{category.name}</option>
+          {categoryNames.map((categoryName) => (
+            <option key={categoryName}>{categoryName}</option>
           ))}
         </select>
         <button className="rounded-md border border-[var(--border)] px-3 py-2 text-sm font-medium hover:bg-[var(--surface-soft)]">
@@ -50,8 +59,7 @@ export default function QuizPage() {
             </tr>
           </thead>
           <tbody>
-            {mockQuizzes.map((quiz) => {
-              const category = mockCategories.find((item) => item.id === quiz.categoryId);
+            {quizzes.map((quiz) => {
               const date = new Date(quiz.scheduledAt).toLocaleString("en-US", {
                 dateStyle: "medium",
                 timeStyle: "short",
@@ -61,7 +69,7 @@ export default function QuizPage() {
                 <tr key={quiz.id} className="border-t border-[var(--border)]">
                   <td className="px-4 py-3 font-semibold">{quiz.title}</td>
                   <td className="px-4 py-3 text-[var(--muted)]">{date}</td>
-                  <td className="px-4 py-3">{category?.name ?? "Unknown"}</td>
+                  <td className="px-4 py-3">{quiz.categoryName ?? "Unknown"}</td>
                   <td className="px-4 py-3">
                     <span className="rounded-full bg-[var(--surface-soft)] px-2 py-1 text-xs font-semibold text-[var(--primary)]">
                       {quiz.status}

@@ -1,4 +1,5 @@
-import { mockCategories, mockQuizzes } from "@/lib/mock-data";
+import { notFound } from "next/navigation";
+import { getQuizDetails } from "@/services/quiz.service";
 
 type QuizDetailPageProps = {
   params: Promise<{ id: string }>;
@@ -6,8 +7,11 @@ type QuizDetailPageProps = {
 
 export default async function QuizDetailPage({ params }: QuizDetailPageProps) {
   const { id } = await params;
-  const quiz = mockQuizzes.find((item) => item.id === id) ?? mockQuizzes[0];
-  const category = mockCategories.find((item) => item.id === quiz.categoryId);
+  const quiz = await getQuizDetails(id);
+  if (!quiz) {
+    notFound();
+  }
+
   const formattedDate = new Date(quiz.scheduledAt).toLocaleString("en-US", {
     dateStyle: "full",
     timeStyle: "short",
@@ -31,7 +35,7 @@ export default async function QuizDetailPage({ params }: QuizDetailPageProps) {
         <div className="mt-6 grid gap-3 md:grid-cols-3">
           <div className="rounded-lg border border-[var(--border)] p-3">
             <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Category</p>
-            <p className="mt-1 font-semibold">{category?.name ?? "Unknown"}</p>
+            <p className="mt-1 font-semibold">{quiz.categoryName ?? "Unknown"}</p>
           </div>
           <div className="rounded-lg border border-[var(--border)] p-3">
             <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Location</p>

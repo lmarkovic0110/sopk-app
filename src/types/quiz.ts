@@ -5,6 +5,7 @@ export type Quiz = {
   title: string;
   scheduledAt: string;
   categoryId: string;
+  categoryName?: string;
   status: QuizStatus;
   createdAt: string;
   updatedAt: string;

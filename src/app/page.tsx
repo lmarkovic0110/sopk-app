@@ -1,7 +1,16 @@
 import Link from "next/link";
-import { mockCategories, mockQuizzes } from "@/lib/mock-data";
+import { getAllQuizzes } from "@/services/quiz.service";
 
-export default function Home() {
+export default async function Home() {
+  const quizzes = await getAllQuizzes();
+  const upcomingQuizzes = quizzes
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime(),
+    )
+    .slice(0, 3);
+
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-6 py-10">
       <section className="rounded-2xl border border-[var(--border)] bg-gradient-to-r from-[var(--primary)] to-[#2d7a58] p-8 text-white">
@@ -32,8 +41,7 @@ export default function Home() {
       </section>
 
       <section className="grid gap-4 md:grid-cols-3">
-        {mockQuizzes.map((quiz) => {
-          const category = mockCategories.find((item) => item.id === quiz.categoryId);
+        {upcomingQuizzes.map((quiz) => {
           const date = new Date(quiz.scheduledAt).toLocaleString("en-US", {
             dateStyle: "medium",
             timeStyle: "short",
@@ -52,7 +60,7 @@ export default function Home() {
               <p className="mt-1 text-sm text-[var(--muted)]">{date}</p>
               <p className="mt-4 text-sm">
                 Category:{" "}
-                <span className="font-semibold">{category?.name ?? "Unknown"}</span>
+                <span className="font-semibold">{quiz.categoryName ?? "Unknown"}</span>
               </p>
             </Link>
           );

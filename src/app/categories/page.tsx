@@ -1,6 +1,8 @@
-import { mockCategories } from "@/lib/mock-data";
+import { getAllCategories } from "@/services/category.service";
 
-export default function CategoriesPage() {
+export default async function CategoriesPage() {
+  const categories = await getAllCategories();
+
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-6 py-10">
       <section className="flex flex-wrap items-end justify-between gap-4">
@@ -32,7 +34,7 @@ export default function CategoriesPage() {
             </tr>
           </thead>
           <tbody>
-            {mockCategories.map((category) => (
+            {categories.map((category) => (
               <tr key={category.id} className="border-t border-[var(--border)]">
                 <td className="px-4 py-3 font-semibold">{category.name}</td>
                 <td className="px-4 py-3 text-[var(--muted)]">
