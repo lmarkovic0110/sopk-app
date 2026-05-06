@@ -25,10 +25,14 @@ export async function listQuizzes(): Promise<Quiz[]> {
       kv.naziv,
       kv.datum_odrzavanja,
       kv.trenutni_status,
+      kv.max_timova,
+      kv.kotizacija_po_clanu,
       kv.id_kategorija,
-      k.naziv_kategorije
+      k.naziv_kategorije,
+      l.naziv_objekta
     FROM kvizevent kv
     LEFT JOIN kategorija k ON k.id_kategorija = kv.id_kategorija
+    LEFT JOIN lokacija l ON l.id_lokacija = kv.id_lokacija
     ORDER BY kv.datum_odrzavanja DESC
   `;
 
@@ -37,8 +41,11 @@ export async function listQuizzes(): Promise<Quiz[]> {
     naziv: string;
     datum_odrzavanja: string | Date;
     trenutni_status: DbQuizStatus;
+    max_timova: number;
+    kotizacija_po_clanu: string | number;
     id_kategorija: number | null;
     naziv_kategorije: string | null;
+    naziv_objekta: string | null;
   }>(query);
 
   return rows.map((row) => {
@@ -50,6 +57,9 @@ export async function listQuizzes(): Promise<Quiz[]> {
       scheduledAt: timestamp,
       categoryId: row.id_kategorija ? String(row.id_kategorija) : "",
       categoryName: row.naziv_kategorije ?? undefined,
+      locationName: row.naziv_objekta ?? undefined,
+      maxTeams: row.max_timova,
+      entryFeePerMember: Number(row.kotizacija_po_clanu),
       status: mapDbStatusToQuizStatus(row.trenutni_status),
       createdAt: timestamp,
       updatedAt: timestamp,
@@ -64,10 +74,14 @@ export async function getQuizById(id: string): Promise<Quiz | null> {
       kv.naziv,
       kv.datum_odrzavanja,
       kv.trenutni_status,
+      kv.max_timova,
+      kv.kotizacija_po_clanu,
       kv.id_kategorija,
-      k.naziv_kategorije
+      k.naziv_kategorije,
+      l.naziv_objekta
     FROM kvizevent kv
     LEFT JOIN kategorija k ON k.id_kategorija = kv.id_kategorija
+    LEFT JOIN lokacija l ON l.id_lokacija = kv.id_lokacija
     WHERE kv.id_kviz = $1
     LIMIT 1
   `;
@@ -77,8 +91,11 @@ export async function getQuizById(id: string): Promise<Quiz | null> {
     naziv: string;
     datum_odrzavanja: string | Date;
     trenutni_status: DbQuizStatus;
+    max_timova: number;
+    kotizacija_po_clanu: string | number;
     id_kategorija: number | null;
     naziv_kategorije: string | null;
+    naziv_objekta: string | null;
   }>(query, [Number(id)]);
 
   const row = rows[0];
@@ -94,6 +111,9 @@ export async function getQuizById(id: string): Promise<Quiz | null> {
     scheduledAt: timestamp,
     categoryId: row.id_kategorija ? String(row.id_kategorija) : "",
     categoryName: row.naziv_kategorije ?? undefined,
+    locationName: row.naziv_objekta ?? undefined,
+    maxTeams: row.max_timova,
+    entryFeePerMember: Number(row.kotizacija_po_clanu),
     status: mapDbStatusToQuizStatus(row.trenutni_status),
     createdAt: timestamp,
     updatedAt: timestamp,

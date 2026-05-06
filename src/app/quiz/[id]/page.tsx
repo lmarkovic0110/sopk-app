@@ -1,16 +1,27 @@
 import { notFound } from "next/navigation";
 import { getQuizDetails } from "@/services/quiz.service";
+import { getSignupsForQuiz } from "@/services/signup.service";
 
 type QuizDetailPageProps = {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ team?: string; created?: string; error?: string }>;
 };
 
-export default async function QuizDetailPage({ params }: QuizDetailPageProps) {
+export default async function QuizDetailPage({
+  params,
+  searchParams,
+}: QuizDetailPageProps) {
   const { id } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const teamFilter = resolvedSearchParams.team?.trim() ?? "";
+  const created = resolvedSearchParams.created === "1";
+  const errorMessage = resolvedSearchParams.error;
   const quiz = await getQuizDetails(id);
   if (!quiz) {
     notFound();
   }
+  const signups = await getSignupsForQuiz(id, teamFilter);
+  const totalMembers = signups.reduce((sum, signup) => sum + signup.memberCount, 0);
 
   const formattedDate = new Date(quiz.scheduledAt).toLocaleString("en-US", {
     dateStyle: "full",
@@ -39,48 +50,137 @@ export default async function QuizDetailPage({ params }: QuizDetailPageProps) {
           </div>
           <div className="rounded-lg border border-[var(--border)] p-3">
             <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Location</p>
-            <p className="mt-1 font-semibold">Central Pub Hall</p>
+            <p className="mt-1 font-semibold">{quiz.locationName ?? "Unknown"}</p>
           </div>
           <div className="rounded-lg border border-[var(--border)] p-3">
             <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Max teams</p>
-            <p className="mt-1 font-semibold">20 teams</p>
+            <p className="mt-1 font-semibold">{quiz.maxTeams ?? 0} teams</p>
+          </div>
+          <div className="rounded-lg border border-[var(--border)] p-3">
+            <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Entry fee</p>
+            <p className="mt-1 font-semibold">
+              {quiz.entryFeePerMember?.toFixed(2) ?? "0.00"} EUR per member
+            </p>
           </div>
         </div>
       </section>
 
       <section className="grid gap-6 md:grid-cols-[2fr_1fr]">
         <div className="rounded-2xl border border-[var(--border)] bg-white p-6 dark:bg-[var(--surface)]">
-          <h2 className="text-xl font-bold">Team Signup</h2>
+          {created ? (
+            <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              Team signup created successfully.
+            </div>
+          ) : null}
+          {errorMessage ? (
+            <div className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              {errorMessage}
+            </div>
+          ) : null}
+
+          <h2 className="text-xl font-bold">Add Signup</h2>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Sign your team up for this quiz event.
+            Create a new team and register it for this quiz.
           </p>
-          <form className="mt-5 grid gap-3">
+
+          <form className="mt-5 grid gap-3 md:grid-cols-2" method="POST" action="/api/signup">
+            <input type="hidden" name="quizId" value={id} />
             <input
-              className="rounded-md border border-[var(--border)] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--primary)]/25"
+              name="teamName"
+              required
+              className="rounded-md border border-[var(--border)] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--primary)]/25 md:col-span-2"
               placeholder="Team name"
             />
             <input
+              name="captainId"
+              type="number"
+              required
+              min={1}
               className="rounded-md border border-[var(--border)] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--primary)]/25"
-              placeholder="Captain email"
+              placeholder="Captain player ID (e.g. 1)"
             />
             <input
+              name="memberCount"
               type="number"
+              required
               min={1}
               className="rounded-md border border-[var(--border)] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--primary)]/25"
               placeholder="Number of members"
             />
-            <button className="mt-2 rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white hover:brightness-105">
-              Submit signup
+            <button className="rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white hover:brightness-105 md:col-span-2">
+              Create team and signup
             </button>
           </form>
+
+          <div className="my-6 border-t border-[var(--border)]" />
+
+          <h2 className="text-xl font-bold">Team Signups</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            Detail list for this quiz event (master-detail).
+          </p>
+
+          <form className="mt-5 flex flex-wrap gap-3" method="GET">
+            <input
+              name="team"
+              defaultValue={teamFilter}
+              className="min-w-[220px] flex-1 rounded-md border border-[var(--border)] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--primary)]/25"
+              placeholder="Search by team name"
+            />
+            <button className="rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white hover:brightness-105">
+              Search
+            </button>
+          </form>
+
+          <div className="mt-5 overflow-hidden rounded-lg border border-[var(--border)]">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-[var(--surface-soft)] text-xs uppercase tracking-wide text-[var(--muted)]">
+                <tr>
+                  <th className="px-4 py-3">Team</th>
+                  <th className="px-4 py-3">Members</th>
+                  <th className="px-4 py-3">Signup time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {signups.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="px-4 py-6 text-center text-[var(--muted)]">
+                      No signups found for this filter.
+                    </td>
+                  </tr>
+                ) : (
+                  signups.map((signup) => (
+                    <tr key={signup.id} className="border-t border-[var(--border)]">
+                      <td className="px-4 py-3 font-semibold">{signup.teamName}</td>
+                      <td className="px-4 py-3">{signup.memberCount}</td>
+                      <td className="px-4 py-3 text-[var(--muted)]">
+                        {new Date(signup.signupTime).toLocaleString("en-US", {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <aside className="rounded-2xl border border-[var(--border)] bg-white p-6 dark:bg-[var(--surface)]">
-          <h3 className="text-lg font-bold">Current teams</h3>
+          <h3 className="text-lg font-bold">Summary</h3>
           <ul className="mt-4 space-y-3 text-sm">
-            <li className="rounded-md bg-[var(--surface-soft)] p-3">Quiz Masters (4)</li>
-            <li className="rounded-md bg-[var(--surface-soft)] p-3">Brainstormers (3)</li>
-            <li className="rounded-md bg-[var(--surface-soft)] p-3">Trivia Ninjas (5)</li>
+            <li className="rounded-md bg-[var(--surface-soft)] p-3">
+              Registered teams: <span className="font-semibold">{signups.length}</span>
+            </li>
+            <li className="rounded-md bg-[var(--surface-soft)] p-3">
+              Total participants: <span className="font-semibold">{totalMembers}</span>
+            </li>
+            <li className="rounded-md bg-[var(--surface-soft)] p-3">
+              Remaining slots:{" "}
+              <span className="font-semibold">
+                {Math.max((quiz.maxTeams ?? 0) - signups.length, 0)}
+              </span>
+            </li>
           </ul>
         </aside>
       </section>
