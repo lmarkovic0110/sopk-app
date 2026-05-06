@@ -1,36 +1,86 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SOPK Quiz App
 
-## Getting Started
+Next.js + PostgreSQL web app for pub quiz management.
 
-First, run the development server:
+## Requirements
+
+- Node.js `>= 20.9.0` (recommended: Node 20 LTS)
+- npm (comes with Node.js)
+- PostgreSQL client tools (`psql`) if you want to import DB scripts manually
+
+## Tech Stack
+
+- Next.js (App Router)
+- React
+- TypeScript
+- Tailwind CSS
+- PostgreSQL (`pg` driver)
+
+## Project Setup
+
+### 1) Clone and install dependencies
+
+```bash
+git clone <repo-url>
+cd sopk-app
+npm install
+```
+
+### 2) Configure environment
+
+Create `.env.local` in project root:
+
+```env
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DB_NAME?sslmode=require"
+```
+
+For Render DB, keep `?sslmode=require` in the URL.
+
+### 3) Run development server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Database Initialization (if needed)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+SQL scripts are in `Documentation/`:
 
-## Learn More
+- `Documentation/baza.sql` -> schema (tables/types)
+- `Documentation/podaci.sql` -> seed/test data
 
-To learn more about Next.js, take a look at the following resources:
+Run in this order:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+psql "<DATABASE_URL>" -f "./Documentation/baza.sql"
+psql "<DATABASE_URL>" -f "./Documentation/podaci.sql"
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+PowerShell tip (quoted identifiers):
 
-## Deploy on Vercel
+```powershell
+psql "<DATABASE_URL>" -c 'SELECT COUNT(*) FROM "KvizEvent";'
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Useful Commands
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run dev    # start local dev server
+npm run lint   # run ESLint
+npm run build  # production build check
+```
+
+## Current Status
+
+- `/` -> homepage with upcoming quizzes
+- `/quiz` -> quiz list from PostgreSQL
+- `/quiz/[id]` -> quiz detail header from PostgreSQL
+- `/categories` -> categories list from PostgreSQL
+
+## Notes for Team
+
+- Use feature branches (`feature/...`) and open PRs to `main`.
+- Do not commit `.env.local` or secrets.
+- If DB schema changes, update SQL scripts in `Documentation/` so everyone stays in sync.
