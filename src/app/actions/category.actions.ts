@@ -17,23 +17,23 @@ export async function createCategoryAction(name: string) {
   }
 }
 
-export async function updateCategoryAction(id: number, name: string) {
+export async function updateCategoryAction(id: string | number, name: string) {
   try {
     await db.query(
       `UPDATE Kategorija SET naziv_kategorije = $1 WHERE id_kategorija = $2`,
-      [name, id]
+      [name, Number(id)]
     );
     revalidatePath("/categories");
-    return { success: true };
+    return { success: true as const };
   } catch (error) {
     console.error(error);
-    return { success: false };
+    return { success: false as const, error: "Could not update category." };
   }
 }
 
-export async function deleteCategoryAction(id: number) {
+export async function deleteCategoryAction(id: string | number) {
   try {
-    await db.query(`DELETE FROM Kategorija WHERE id_kategorija = $1`, [id]);
+    await db.query(`DELETE FROM Kategorija WHERE id_kategorija = $1`, [Number(id)]);
     revalidatePath("/categories");
     return { success: true };
   } catch (error) {

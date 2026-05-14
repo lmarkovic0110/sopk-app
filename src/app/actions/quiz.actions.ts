@@ -1,6 +1,12 @@
 "use server";
 
-import { createQuiz, deleteQuizRepo, updateQuizRepo } from "@/repositories/quiz.repository";
+import {
+  createQuiz,
+  deleteQuizRepo,
+  getQuizById,
+  updateQuizCategoryAndLocation,
+  updateQuizRepo,
+} from "@/repositories/quiz.repository";
 import { getLocationTableCapacityById } from "@/repositories/location.repository";
 import { revalidatePath } from "next/cache";
 
@@ -76,6 +82,38 @@ export async function updateQuizAction(quizId: string, data: Record<string, unkn
   } catch (error) {
     console.error(error);
     return { success: false as const, error: "Could not update the quiz." };
+  }
+}
+
+export async function updateQuizHeaderFksAction(
+  quizId: string,
+  categoryId: string,
+  locationId: string,
+): Promise<{ success: true } | { success: false; error: string }> {
+  const cat = categoryId.trim();
+  const loc = locationId.trim();
+  if (!cat) return { success: false, error: "Category is required." };
+  if (!loc) return { success: false, error: "Location is required." };
+
+  const quiz = await getQuizById(quizId);
+  if (!quiz) return { success: false, error: "Quiz not found." };
+
+  const maxTeams = quiz.maxTeams ?? 0;
+  if (maxTeams < 1) {
+    return { success: false, error: "Quiz has no valid max teams; fix it on the full edit screen first." };
+  }
+
+  const check = await validateMaxTeamsForLocation(loc, maxTeams);
+  if (!check.ok) return { success: false, error: check.error };
+
+  try {
+    await updateQuizCategoryAndLocation(quizId, cat, loc);
+    revalidatePath("/quiz");
+    revalidatePath(`/quiz/${quizId}`);
+    return { success: true };
+  } catch (error) {
+    console.error(error);
+    return { success: false, error: "Could not update category or location." };
   }
 }
 

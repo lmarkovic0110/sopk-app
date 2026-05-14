@@ -15,6 +15,7 @@ Next.js + PostgreSQL web app for pub quiz management.
 - TypeScript
 - Tailwind CSS
 - PostgreSQL (`pg` driver)
+- Auth0 (`@auth0/nextjs-auth0`) for sign-in and role-based UI (Admin / Organizator)
 
 ## Project Setup
 
@@ -28,10 +29,17 @@ npm install
 
 ### 2) Configure environment
 
-Create `.env.local` in project root:
+Create `.env.local` in project root (values come from your Postgres host and Auth0 application):
 
 ```env
 DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DB_NAME?sslmode=require"
+
+# Auth0 (see @auth0/nextjs-auth0 setup — typical names)
+AUTH0_SECRET="use-a-long-random-string"
+AUTH0_BASE_URL="http://localhost:3000"
+AUTH0_ISSUER_BASE_URL="https://YOUR_TENANT.auth0.com"
+AUTH0_CLIENT_ID="..."
+AUTH0_CLIENT_SECRET="..."
 ```
 
 For Render DB, keep `?sslmode=require` in the URL.
@@ -67,17 +75,24 @@ psql "<DATABASE_URL>" -c 'SELECT COUNT(*) FROM "KvizEvent";'
 ## Useful Commands
 
 ```bash
-npm run dev    # start local dev server
-npm run lint   # run ESLint
-npm run build  # production build check
+npm run dev     # start local dev server
+npm run lint    # run ESLint
+npm run build   # production build check
+npm run test    # Jest tests (integration tests may skip if DATABASE_URL is unset)
+npm run start   # run production server (after build)
 ```
 
-## Current Status
+## Routes (overview)
 
-- `/` -> homepage with upcoming quizzes
-- `/quiz` -> quiz list from PostgreSQL
-- `/quiz/[id]` -> quiz detail header from PostgreSQL
-- `/categories` -> categories list from PostgreSQL
+- `/` — homepage with upcoming quizzes
+- `/quiz` — quiz list (search / filters), links to detail and create (for Admin / Organizator)
+- `/quiz/create` — create quiz (category & location selects, validation vs venue capacity)
+- `/quiz/[id]` — **master–detail**: quiz header (Admin/Organizator can update category & location via selects), team signup form (players from DB as selects), signups table with search, summary sidebar
+- `/quiz/[id]/edit` — full quiz edit form
+- `/categories` — category **šifrarnik**: list, search, create / update / delete (managed roles)
+- `/locations/create` — add a new venue (linked to signed-in host user flow)
+
+Auth routes are under `/api/auth/[auth0]` (login, logout, callback).
 
 ## Notes for Team
 

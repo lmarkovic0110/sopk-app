@@ -3,11 +3,7 @@
 import { useUser } from '@auth0/nextjs-auth0/client';
 import { useState } from 'react';
 import { createCategoryAction, updateCategoryAction, deleteCategoryAction } from '@/app/actions/category.actions';
-
-interface Category {
-  id: number;
-  name: string;
-}
+import type { Category } from '@/types/category';
 
 export default function CategoriesClient({ categories }: { categories: Category[] }) {
   const { user, isLoading: authLoading } = useUser();

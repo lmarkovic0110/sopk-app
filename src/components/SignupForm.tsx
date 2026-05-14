@@ -4,7 +4,17 @@ import { useState, useEffect, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createTeamAndSignupAction } from "@/app/actions/signup.actions";
 
-export default function SignupForm({ quizId }: { quizId: string }) {
+export type SignupPlayerOption = { id: string; label: string };
+
+type SignupFormProps = {
+  quizId: string;
+  players: SignupPlayerOption[];
+};
+
+const selectClass =
+  "rounded-md border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--primary)]/25 shadow-sm w-full";
+
+export default function SignupForm({ quizId, players }: SignupFormProps) {
   const [memberFields, setMemberFields] = useState<number[]>([]);
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -44,9 +54,18 @@ export default function SignupForm({ quizId }: { quizId: string }) {
   const addMember = () => setMemberFields([...memberFields, Date.now()]);
   const removeMember = (id: number) => setMemberFields(memberFields.filter((f) => f !== id));
 
+  const noPlayers = players.length === 0;
+
   return (
     <>
-      <form action={createTeamAndSignupAction} className="mt-5 space-y-4">
+      {noPlayers ? (
+        <p className="mt-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100">
+          There are no registered players in the system yet. Add players to the <code className="text-xs">igrac</code>{" "}
+          table before teams can sign up.
+        </p>
+      ) : null}
+
+      <form action={createTeamAndSignupAction} className={`mt-5 space-y-4 ${noPlayers ? "pointer-events-none opacity-50" : ""}`}>
         <input type="hidden" name="quizId" value={quizId} />
         <div className="grid gap-3 md:grid-cols-2">
           <input
@@ -55,32 +74,43 @@ export default function SignupForm({ quizId }: { quizId: string }) {
             placeholder="Team name"
             className="rounded-md border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--primary)]/25 md:col-span-2 shadow-sm"
           />
-          <input
-            name="captainId"
-            type="number"
-            required
-            placeholder="Captain player ID"
-            className="rounded-md border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--primary)]/25 shadow-sm"
-          />
+          <div className="md:col-span-2">
+            <label className="text-[10px] font-bold uppercase tracking-widest text-[var(--muted)] mb-1 block">
+              Captain (player)
+            </label>
+            <select name="captainId" required className={selectClass} defaultValue="">
+              <option value="" disabled>
+                Select captain…
+              </option>
+              {players.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label} (#{p.id})
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="space-y-2">
           <label className="text-[10px] font-bold uppercase tracking-widest text-[var(--muted)]">
-            Team members (player IDs)
+            Team members (players)
           </label>
           {memberFields.map((fieldId, index) => (
             <div key={fieldId} className="flex gap-2 animate-in fade-in slide-in-from-left-1 duration-200">
-              <input
-                name="memberIds"
-                type="number"
-                required
-                placeholder={`Member ${index + 2} player ID`}
-                className="flex-1 rounded-md border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--primary)]/25 shadow-sm"
-              />
+              <select name="memberIds" required className={selectClass}>
+                <option value="" disabled>
+                  Select member {index + 2}…
+                </option>
+                {players.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label} (#{p.id})
+                  </option>
+                ))}
+              </select>
               <button
                 type="button"
                 onClick={() => removeMember(fieldId)}
-                className="text-rose-500 px-2 hover:bg-rose-50 rounded-md transition-colors"
+                className="text-rose-500 px-2 hover:bg-rose-50 rounded-md transition-colors shrink-0"
               >
                 ✕
               </button>
@@ -89,13 +119,18 @@ export default function SignupForm({ quizId }: { quizId: string }) {
           <button
             type="button"
             onClick={addMember}
-            className="text-xs font-bold text-[var(--primary)] hover:underline flex items-center gap-1"
+            disabled={noPlayers}
+            className="text-xs font-bold text-[var(--primary)] hover:underline flex items-center gap-1 disabled:opacity-40"
           >
             + Add another member
           </button>
         </div>
 
-        <button className="w-full rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white hover:brightness-105 transition-all shadow-md active:scale-[0.98]">
+        <button
+          type="submit"
+          disabled={noPlayers}
+          className="w-full rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white hover:brightness-105 transition-all shadow-md active:scale-[0.98] disabled:opacity-50"
+        >
           Register team and members
         </button>
       </form>

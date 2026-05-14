@@ -1,8 +1,12 @@
 import { notFound } from "next/navigation";
 import { getQuizDetails } from "@/services/quiz.service";
 import { getSignupsForQuiz } from "@/services/signup.service";
+import { listCategories } from "@/repositories/category.repository";
+import { listLocations } from "@/repositories/location.repository";
+import { listPlayersForSelect } from "@/repositories/player.repository";
 import SignupForm from "@/components/SignupForm";
 import QuizManageActions from "@/components/QuizManageActions";
+import { QuizHeaderFkControls } from "@/components/QuizHeaderFkControls";
 
 type QuizDetailPageProps = {
   params: Promise<{ id: string }>;
@@ -39,6 +43,12 @@ export default async function QuizDetailPage({
   const signups = await getSignupsForQuiz(id, teamFilter);
   const totalMembers = signups.reduce((sum, signup) => sum + signup.memberCount, 0);
 
+  const [categories, locations, players] = await Promise.all([
+    listCategories(),
+    listLocations(),
+    listPlayersForSelect(),
+  ]);
+
   const formattedDate = new Date(quiz.scheduledAt).toLocaleString("en-US", {
     dateStyle: "full",
     timeStyle: "short",
@@ -63,26 +73,17 @@ export default async function QuizDetailPage({
             <QuizManageActions quizId={quiz.id} />
           </div>
         </div>
-        <div className="mt-6 grid gap-3 md:grid-cols-4">
-          <div className="rounded-lg border border-[var(--border)] p-3 bg-[var(--surface-soft)]/30">
-            <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Category</p>
-            <p className="mt-1 font-semibold">{quiz.categoryName ?? "Unknown"}</p>
-          </div>
-          <div className="rounded-lg border border-[var(--border)] p-3 bg-[var(--surface-soft)]/30">
-            <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Location</p>
-            <p className="mt-1 font-semibold">{quiz.locationName ?? "Unknown"}</p>
-          </div>
-          <div className="rounded-lg border border-[var(--border)] p-3 bg-[var(--surface-soft)]/30">
-            <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Max teams</p>
-            <p className="mt-1 font-semibold">{quiz.maxTeams ?? 0} teams</p>
-          </div>
-          <div className="rounded-lg border border-[var(--border)] p-3 bg-[var(--surface-soft)]/30">
-            <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Entry fee</p>
-            <p className="mt-1 font-semibold">
-              {quiz.entryFeePerMember?.toFixed(2) ?? "0.00"} EUR <span className="text-[10px] text-[var(--muted)]">/ member</span>
-            </p>
-          </div>
-        </div>
+        <QuizHeaderFkControls
+          quizId={quiz.id}
+          categoryId={quiz.categoryId}
+          locationId={quiz.locationId ?? ""}
+          categoryName={quiz.categoryName}
+          locationName={quiz.locationName}
+          maxTeams={quiz.maxTeams}
+          entryFeePerMember={quiz.entryFeePerMember}
+          categories={categories.map((c) => ({ id: c.id, name: c.name }))}
+          locations={locations.map((l) => ({ id: l.id, name: l.name }))}
+        />
       </section>
 
       <section className="grid gap-6 md:grid-cols-[2fr_1fr]">
@@ -101,10 +102,11 @@ export default async function QuizDetailPage({
 
           <h2 className="text-xl font-bold">Add Signup</h2>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Register a team and its members. Use player IDs for each member.
+            Register a team and its members. Choose captain and members from the player list (foreign keys to{" "}
+            <code className="text-xs">igrac</code>).
           </p>
 
-          <SignupForm quizId={id} />
+          <SignupForm quizId={id} players={players} />
 
           <div className="my-8 border-t border-[var(--border)]" />
 

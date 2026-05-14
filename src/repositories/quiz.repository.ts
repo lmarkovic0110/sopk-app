@@ -206,3 +206,15 @@ export async function updateQuizRepo(id: string, input: any): Promise<void> {
 export async function deleteQuizRepo(id: string): Promise<void> {
   await db.query(`DELETE FROM kvizevent WHERE id_kviz = $1`, [Number(id)]);
 }
+
+/** Updates only category and location FKs (master-detail header on quiz detail page). */
+export async function updateQuizCategoryAndLocation(
+  quizId: string,
+  categoryId: string,
+  locationId: string,
+): Promise<void> {
+  await db.query(
+    `UPDATE kvizevent SET id_kategorija = $1, id_lokacija = $2 WHERE id_kviz = $3`,
+    [Number(categoryId), Number(locationId), Number(quizId)],
+  );
+}

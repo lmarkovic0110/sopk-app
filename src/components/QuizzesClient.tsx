@@ -2,15 +2,8 @@
 
 import { useUser } from '@auth0/nextjs-auth0/client';
 import { useState } from 'react';
-import Link from 'next/link';
-
-interface Quiz {
-  id: number;
-  title: string;
-  status: string;
-  scheduledAt: string;
-  categoryName?: string;
-}
+import Link from "next/link";
+import type { Quiz } from "@/types/quiz";
 
 export default function QuizzesClient({ quizzes }: { quizzes: Quiz[] }) {
   const { user } = useUser();
