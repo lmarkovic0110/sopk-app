@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getQuizDetails } from "@/services/quiz.service";
 import { getSignupsForQuiz } from "@/services/signup.service";
 import SignupForm from "@/components/SignupForm";
+import QuizManageActions from "@/components/QuizManageActions";
 
 type QuizDetailPageProps = {
   params: Promise<{ id: string }>;
@@ -16,7 +17,19 @@ export default async function QuizDetailPage({
   const resolvedSearchParams = searchParams ? await searchParams : {};
   const teamFilter = resolvedSearchParams.team?.trim() ?? "";
   const created = resolvedSearchParams.created === "1";
-  const errorMessage = resolvedSearchParams.error;
+  const errorCode = resolvedSearchParams.error?.trim();
+  const signupErrorBanner =
+    errorCode === "invalid_members"
+      ? "Some player IDs are not registered in the system."
+      : errorCode === "duplicate_roster"
+        ? "The same player ID cannot appear more than once on this team."
+        : errorCode === "duplicate_quiz_player"
+          ? "One or more players are already on another team for this quiz."
+          : errorCode === "db_error"
+            ? "Something went wrong while saving the signup. Please try again."
+            : errorCode
+              ? errorCode
+              : null;
 
   const quiz = await getQuizDetails(id);
   if (!quiz) {
@@ -43,9 +56,12 @@ export default async function QuizDetailPage({
             <h1 className="mt-2 text-3xl font-bold">{quiz.title}</h1>
             <p className="mt-2 text-sm text-[var(--muted)]">{formattedDate}</p>
           </div>
-          <span className="rounded-full bg-[var(--surface-soft)] px-3 py-1 text-sm font-semibold text-[var(--primary)] border border-[var(--primary)]/10">
-            {quiz.status}
-          </span>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="rounded-full bg-[var(--surface-soft)] px-3 py-1 text-sm font-semibold text-[var(--primary)] border border-[var(--primary)]/10">
+              {quiz.status}
+            </span>
+            <QuizManageActions quizId={quiz.id} />
+          </div>
         </div>
         <div className="mt-6 grid gap-3 md:grid-cols-4">
           <div className="rounded-lg border border-[var(--border)] p-3 bg-[var(--surface-soft)]/30">
@@ -77,9 +93,9 @@ export default async function QuizDetailPage({
               <span className="text-lg">✓</span> Team and members registered successfully.
             </div>
           )}
-          {errorMessage && (
+          {signupErrorBanner && (
             <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 flex items-center gap-2">
-              <span className="text-lg">✕</span> {errorMessage}
+              <span className="text-lg">✕</span> {signupErrorBanner}
             </div>
           )}
 
@@ -166,7 +182,7 @@ export default async function QuizDetailPage({
               </li>
               <li className="flex justify-between items-center rounded-lg bg-[var(--surface-soft)]/50 p-3">
                 <span className="text-[var(--muted)]">Remaining slots</span>
-                <span className={`font-bold text-lg ${quiz.maxTeams - signups.length <= 3 ? 'text-rose-500' : 'text-emerald-600'}`}>
+                <span className={`font-bold text-lg ${(quiz.maxTeams ?? 0) - signups.length <= 3 ? 'text-rose-500' : 'text-emerald-600'}`}>
                   {Math.max((quiz.maxTeams ?? 0) - signups.length, 0)}
                 </span>
               </li>

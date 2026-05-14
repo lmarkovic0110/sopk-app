@@ -11,19 +11,42 @@ export async function createTeamAndSignupAction(formData: FormData) {
   const memberIds = (formData.getAll("memberIds") as string[]).filter(id => id.trim() !== "");
 
   const allIdsToCheck = [captainId, ...memberIds];
+  const numericIds = allIdsToCheck.map((id) => Number.parseInt(String(id).trim(), 10));
+
+  if (numericIds.some((n) => !Number.isFinite(n))) {
+    return redirect(`/quiz/${quizId}?error=invalid_members`);
+  }
+
+  if (new Set(numericIds).size !== numericIds.length) {
+    return redirect(`/quiz/${quizId}?error=duplicate_roster`);
+  }
 
   try {
-    // 1. Provjera postoje li svi igrači
+    // 1. Verify all player IDs exist in igrac
     const playersRes = await db.query(
-      `SELECT id_igrac FROM Igrac WHERE id_igrac = ANY($1::int[])`,
-      [allIdsToCheck.map(id => parseInt(id))]
+      `SELECT id_korisnik FROM igrac WHERE id_korisnik = ANY($1::int[])`,
+      [numericIds]
     );
 
-    const foundIds = playersRes.rows.map(r => r.id_igrac.toString());
-    const missingIds = allIdsToCheck.filter(id => !foundIds.includes(id));
-
-    if (missingIds.length > 0) {
+    const foundIds = new Set(playersRes.rows.map((r) => Number(r.id_korisnik)));
+    if (numericIds.some((id) => !foundIds.has(id))) {
       return redirect(`/quiz/${quizId}?error=invalid_members`);
+    }
+
+    // 2. No player may already be on another team for this quiz (clantima.id_igrac stores igrac id)
+    const conflictRes = await db.query<{ exists: boolean }>(
+      `SELECT EXISTS (
+        SELECT 1
+        FROM prijava p
+        INNER JOIN clantima ct ON ct.id_tim = p.id_tim
+        WHERE p.id_kviz = $1
+          AND ct.id_igrac = ANY($2::int[])
+      ) AS exists`,
+      [Number(quizId), numericIds]
+    );
+
+    if (conflictRes.rows[0]?.exists) {
+      return redirect(`/quiz/${quizId}?error=duplicate_quiz_player`);
     }
 
     await db.query("BEGIN");
@@ -51,7 +74,7 @@ export async function createTeamAndSignupAction(formData: FormData) {
   } catch (error: any) {
     await db.query("ROLLBACK");
     console.error("Signup Error:", error);
-    // Ako je greška već redirect, samo je pusti (Next.js redirecti bacaju interni error)
+    // If this is already a Next.js redirect, rethrow
     if (error.digest?.includes('NEXT_REDIRECT')) throw error;
     return redirect(`/quiz/${quizId}?error=db_error`);
   }

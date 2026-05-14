@@ -1,90 +1,301 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createQuizAction } from "@/app/actions/quiz.actions";
+import { createQuizAction, updateQuizAction } from "@/app/actions/quiz.actions";
+import type { DbQuizStatus } from "@/types/quiz";
 
-export function QuizForm({ categories, locations }: { categories: any[], locations: any[] }) {
-  const [loading, setLoading] = useState(false);
+export type QuizFormCategory = { id: string; name: string };
+export type QuizFormLocation = { id: string; name: string; tableCapacity: number };
+
+export type QuizFormInitial = {
+  id: string;
+  title: string;
+  scheduledAt: string;
+  categoryId: string;
+  locationId: string;
+  maxTeams: number;
+  entryFeePerMember: number;
+  dbStatus: DbQuizStatus;
+};
+
+const fieldClass =
+  "w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-4 py-2.5 text-sm text-[var(--foreground)] outline-none transition-shadow placeholder:text-[var(--muted)]/55 focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20";
+
+const labelClass =
+  "mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--muted)]";
+
+function toDatetimeLocalValue(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+const EDIT_STATUS_OPTIONS: { value: DbQuizStatus; label: string }[] = [
+  { value: "Najavljen", label: "Draft" },
+  { value: "U tijeku", label: "Live" },
+  { value: "Popunjen", label: "Full" },
+  { value: "Završen", label: "Closed" },
+  { value: "Otkazan", label: "Cancelled" },
+];
+
+type QuizFormProps = {
+  categories: QuizFormCategory[];
+  locations: QuizFormLocation[];
+  mode?: "create" | "edit";
+  initialQuiz?: QuizFormInitial;
+};
+
+export function QuizForm({
+  categories,
+  locations,
+  mode = "create",
+  initialQuiz,
+}: QuizFormProps) {
   const router = useRouter();
+  const isEdit = mode === "edit" && initialQuiz;
+
+  const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [selectedLocationId, setSelectedLocationId] = useState(
+    isEdit && initialQuiz ? initialQuiz.locationId : ""
+  );
+  const maxTeamsInputRef = useRef<HTMLInputElement>(null);
+
+  const selectedLocation = locations.find((l) => l.id === selectedLocationId);
+  const maxTeamsUpperBound = selectedLocation?.tableCapacity;
+
+  const syncMaxTeamsToLocation = (locationId: string) => {
+    const loc = locations.find((l) => l.id === locationId);
+    const input = maxTeamsInputRef.current;
+    if (!loc || !input) return;
+
+    const current = Number.parseInt(input.value, 10);
+    if (!Number.isFinite(current) || input.value.trim() === "") {
+      input.value = String(loc.tableCapacity);
+      return;
+    }
+    if (current > loc.tableCapacity) {
+      input.value = String(loc.tableCapacity);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setFormError(null);
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    const data = Object.fromEntries(formData.entries());
+    const data = Object.fromEntries(formData.entries()) as Record<string, unknown>;
 
-    const result = await createQuizAction(data);
+    const locationId = typeof data.locationId === "string" ? data.locationId.trim() : "";
+    const loc = locations.find((l) => l.id === locationId);
+    const maxTeamsRaw = data.maxTeams;
+    const maxTeamsNum =
+      typeof maxTeamsRaw === "string" && maxTeamsRaw.trim() !== ""
+        ? Number.parseInt(maxTeamsRaw, 10)
+        : typeof maxTeamsRaw === "number"
+          ? Math.trunc(maxTeamsRaw)
+          : NaN;
+
+    if (!loc) {
+      setFormError("Select a location.");
+      setLoading(false);
+      return;
+    }
+    if (!Number.isFinite(maxTeamsNum) || maxTeamsNum < 1) {
+      setFormError("Enter a valid max teams value.");
+      setLoading(false);
+      return;
+    }
+    if (maxTeamsNum > loc.tableCapacity) {
+      setFormError(`Max teams cannot exceed this venue's table count (${loc.tableCapacity}).`);
+      setLoading(false);
+      return;
+    }
+
+    const result = isEdit
+      ? await updateQuizAction(initialQuiz.id, data)
+      : await createQuizAction(data);
 
     if (result.success) {
-      router.push("/quiz");
+      if (isEdit) {
+        router.push(`/quiz/${initialQuiz.id}`);
+      } else {
+        router.push("/quiz");
+      }
       router.refresh();
     } else {
-      alert("Error saving quiz");
+      setFormError("error" in result && result.error ? result.error : isEdit ? "Could not update the quiz." : "Could not create the quiz.");
       setLoading(false);
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Title */}
       <div>
-        <label className="block text-xs font-bold uppercase tracking-widest text-white/40 mb-2">Quiz Title</label>
-        <input name="title" required className="w-full rounded-lg border border-white/10 bg-white/5 p-3 text-white focus:border-[var(--primary)] outline-none" placeholder="Enter quiz name..." />
+        <label htmlFor="quiz-title" className={labelClass}>
+          Quiz title
+        </label>
+        <input
+          id="quiz-title"
+          name="title"
+          required
+          className={fieldClass}
+          placeholder="Enter quiz name…"
+          defaultValue={isEdit ? initialQuiz.title : undefined}
+        />
       </div>
 
-      {/* Description */}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <div>
+          <label htmlFor="quiz-category" className={labelClass}>
+            Category
+          </label>
+          <select
+            id="quiz-category"
+            name="categoryId"
+            required
+            className={fieldClass}
+            defaultValue={isEdit ? initialQuiz.categoryId : ""}
+          >
+            <option value="">Select category</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="quiz-location" className={labelClass}>
+            Location
+          </label>
+          <select
+            id="quiz-location"
+            name="locationId"
+            required
+            className={fieldClass}
+            defaultValue={isEdit ? initialQuiz.locationId : ""}
+            onChange={(e) => {
+              const id = e.target.value;
+              setSelectedLocationId(id);
+              syncMaxTeamsToLocation(id);
+            }}
+          >
+            <option value="">Select location</option>
+            {locations.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        <div>
+          <label htmlFor="quiz-scheduled" className={labelClass}>
+            Date &amp; time
+          </label>
+          <input
+            id="quiz-scheduled"
+            name="scheduledAt"
+            type="datetime-local"
+            required
+            className={fieldClass}
+            defaultValue={isEdit ? toDatetimeLocalValue(initialQuiz.scheduledAt) : undefined}
+          />
+        </div>
+        <div>
+          <label htmlFor="quiz-status" className={labelClass}>
+            {isEdit ? "Status" : "Initial status"}
+          </label>
+          <select
+            id="quiz-status"
+            name="status"
+            className={fieldClass}
+            defaultValue={isEdit ? initialQuiz.dbStatus : "Najavljen"}
+          >
+            {isEdit
+              ? EDIT_STATUS_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))
+              : (
+                <>
+                  <option value="Najavljen">Draft</option>
+                  <option value="U tijeku">Live</option>
+                  <option value="Popunjen">Full</option>
+                </>
+              )}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="quiz-max-teams" className={labelClass}>
+            Max teams
+          </label>
+          <input
+            id="quiz-max-teams"
+            ref={maxTeamsInputRef}
+            name="maxTeams"
+            type="number"
+            required
+            min={1}
+            max={maxTeamsUpperBound}
+            className={fieldClass}
+            defaultValue={isEdit ? initialQuiz.maxTeams : ""}
+          />
+          <p className="mt-1.5 text-xs text-[var(--muted)]">
+            Must be between 1 and this venue&apos;s table count
+            {maxTeamsUpperBound != null ? ` (${maxTeamsUpperBound})` : ""}. Changing location adjusts the value if it
+            was too high.
+          </p>
+        </div>
+      </div>
+
       <div>
-        <label className="block text-xs font-bold uppercase tracking-widest text-white/40 mb-2">Short Description (Optional)</label>
-        <textarea name="description" className="w-full rounded-lg border border-white/10 bg-white/5 p-3 text-white focus:border-[var(--primary)] outline-none h-24 resize-none" placeholder="Briefly describe the event..." />
+        <label htmlFor="quiz-entry-fee" className={labelClass}>
+          Entry fee (EUR / member)
+        </label>
+        <input
+          id="quiz-entry-fee"
+          name="entryFee"
+          type="number"
+          step="0.01"
+          min={0}
+          className={fieldClass}
+          defaultValue={isEdit ? initialQuiz.entryFeePerMember : 0}
+        />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Category */}
-        <div>
-          <label className="block text-xs font-bold uppercase tracking-widest text-white/40 mb-2">Category</label>
-          <select name="categoryId" required className="w-full rounded-lg border border-white/10 bg-white/5 p-3 text-white focus:border-[var(--primary)] outline-none">
-            <option value="">Select Category</option>
-            {categories.map(c => <option key={c.id} value={c.id} className="bg-[#0d1f18]">{c.name}</option>)}
-          </select>
-        </div>
-        {/* Location */}
-        <div>
-          <label className="block text-xs font-bold uppercase tracking-widest text-white/40 mb-2">Location</label>
-          <select name="locationId" required className="w-full rounded-lg border border-white/10 bg-white/5 p-3 text-white focus:border-[var(--primary)] outline-none">
-            <option value="">Select Location</option>
-            {locations.map(l => <option key={l.id} value={l.id} className="bg-[#0d1f18]">{l.name}</option>)}
-          </select>
-        </div>
-      </div>
+      {formError ? (
+        <p className="text-sm font-medium text-red-600 dark:text-red-400" role="alert">
+          {formError}
+        </p>
+      ) : null}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Date */}
-        <div>
-          <label className="block text-xs font-bold uppercase tracking-widest text-white/40 mb-2">Date & Time</label>
-          <input name="scheduledAt" type="datetime-local" required className="w-full rounded-lg border border-white/10 bg-white/5 p-3 text-white focus:border-[var(--primary)] outline-none" />
-        </div>
-        {/* Status */}
-        <div>
-          <label className="block text-xs font-bold uppercase tracking-widest text-white/40 mb-2">Initial Status</label>
-          <select name="status" className="w-full rounded-lg border border-white/10 bg-white/5 p-3 text-white focus:border-[var(--primary)] outline-none">
-            <option value="Najavljen" className="bg-[#0d1f18]">Draft (Najavljen)</option>
-            <option value="U tijeku" className="bg-[#0d1f18]">Live (U tijeku)</option>
-            <option value="Popunjen" className="bg-[#0d1f18]">Full (Popunjen)</option>
-          </select>
-        </div>
-        {/* Max Teams */}
-        <div>
-          <label className="block text-xs font-bold uppercase tracking-widest text-white/40 mb-2">Max Teams</label>
-          <input name="maxTeams" type="number" defaultValue={15} min={1} className="w-full rounded-lg border border-white/10 bg-white/5 p-3 text-white focus:border-[var(--primary)] outline-none" />
-        </div>
-      </div>
-
-      <div className="flex justify-end gap-4 pt-6 border-t border-white/5">
-        <button type="button" onClick={() => router.back()} className="px-6 py-3 font-bold text-white/40 hover:text-white uppercase text-xs transition-colors">Cancel</button>
-        <button type="submit" disabled={loading} className="rounded-lg bg-[var(--primary)] px-10 py-3 font-bold text-white uppercase text-xs hover:brightness-110 disabled:opacity-50 transition-all shadow-lg shadow-[var(--primary)]/10">
-          {loading ? "Creating..." : "Create Quiz"}
+      <div className="flex flex-wrap items-center justify-end gap-3 border-t border-[var(--border)] pt-6">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-5 py-2.5 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--surface-soft)]"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={loading}
+          className="rounded-md bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition-all hover:brightness-110 disabled:opacity-50"
+        >
+          {loading
+            ? isEdit
+              ? "Saving…"
+              : "Creating…"
+            : isEdit
+              ? "Save changes"
+              : "Create Quiz"}
         </button>
       </div>
     </form>

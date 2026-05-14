@@ -14,12 +14,12 @@ export default function AuthStatus() {
         <span className="text-sm font-semibold text-[var(--primary)]">
           {user.nickname || user.name}
         </span>
-        <a
+        <Link
           href="/api/auth/logout"
-          className="text-xs text-[var(--muted)] hover:text-rose-500 transition-colors"
+          className="rounded-md border border-[var(--border)] px-4 py-2 text-sm font-medium hover:bg-[var(--surface-soft)]"
         >
-          (Log out)
-        </a>
+          Log out
+        </Link>
       </div>
     );
   }

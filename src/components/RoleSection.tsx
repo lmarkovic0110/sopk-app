@@ -7,14 +7,14 @@ export default function RoleSection() {
   const { user, isLoading } = useUser();
   const router = useRouter();
 
-  // Dohvaćanje rola iz custom claim-a
+  // Roles from Auth0 custom claim (values must match IdP, e.g. Organizator, Ugostitelj)
   const roles: string[] = (user?.['http://localhost:3000/roles'] as string[]) || [];
 
-  // Logika za dopuštenja
+  // Permission flags for action buttons
   const canCreateQuiz = roles.some(role => ['Admin', 'Organizator'].includes(role));
   const canCreateLocation = roles.some(role => ['Admin', 'Ugostitelj'].includes(role));
 
-  // Ako se podaci još učitavaju, možemo vratiti prazan placeholder ili ništa
+  // While roles are loading, show a skeleton block
   if (isLoading) return <div className="h-48 animate-pulse rounded-2xl bg-white/5" />;
 
   return (
@@ -30,7 +30,7 @@ export default function RoleSection() {
       {/* Role */}
       {(canCreateQuiz || canCreateLocation) && (
         <div className="mt-6 flex flex-wrap gap-3">
-          {/* Amin/Organizator */}
+          {/* Admin/Organizer */}
           {canCreateQuiz && (
             <button
               onClick={() => router.push("/quiz/create")}
@@ -40,7 +40,7 @@ export default function RoleSection() {
             </button>
           )}
 
-          {/* Admin/Ugostitelj */}
+          {/* Admin / Host (Ugostitelj) */}
           {canCreateLocation && (
             <button
               onClick={() => router.push("/locations/create")}

@@ -12,7 +12,7 @@ export async function createLocationAction(data: {
   lastName: string
 }) {
   try {
-    if (!data.email) return { success: false, error: "Email je obavezan." };
+    if (!data.email) return { success: false, error: "Email is required." };
 
     // 1. Sinkronizacija korisnika
     let userResult = await db.query(`SELECT id_korisnik FROM Korisnik WHERE email = $1`, [data.email]);
@@ -22,7 +22,7 @@ export async function createLocationAction(data: {
       const newUser = await db.query(
         `INSERT INTO Korisnik (ime, prezime, email, lozinka)
          VALUES ($1, $2, $3, $4) RETURNING id_korisnik`,
-        [data.firstName || "Ime", data.lastName || "Prezime", data.email, "OAUTH_USER"]
+        [data.firstName || "Unknown", data.lastName || "User", data.email, "OAUTH_USER"]
       );
       userId = newUser.rows[0].id_korisnik;
       await db.query(`INSERT INTO Ugostitelj (id_korisnik) VALUES ($1)`, [userId]);
@@ -42,6 +42,6 @@ export async function createLocationAction(data: {
     return { success: true };
   } catch (error: any) {
     console.error("Database Error:", error);
-    return { success: false, error: "Greška pri upisu u bazu." };
+    return { success: false, error: "Could not save to the database." };
   }
 }

@@ -13,7 +13,7 @@ export async function createCategoryAction(name: string) {
     return { success: true };
   } catch (error) {
     console.error(error);
-    return { success: false, error: "Greška pri kreiranju." };
+    return { success: false, error: "Could not create category." };
   }
 }
 
@@ -38,6 +38,6 @@ export async function deleteCategoryAction(id: number) {
     return { success: true };
   } catch (error) {
     console.error(error);
-    return { success: false, error: "Kategorija je vjerojatno povezana s kvizom i ne može se obrisati." };
+    return { success: false, error: "This category is probably linked to a quiz and cannot be deleted." };
   }
 }
