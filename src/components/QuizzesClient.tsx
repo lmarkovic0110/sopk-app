@@ -14,7 +14,7 @@ interface Quiz {
 
 export default function QuizzesClient({ quizzes }: { quizzes: Quiz[] }) {
   const { user } = useUser();
-  
+
   // States za filtere
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All statuses");
@@ -22,7 +22,7 @@ export default function QuizzesClient({ quizzes }: { quizzes: Quiz[] }) {
 
   // Auth0 uloge
   const roles: string[] = (user?.['http://localhost:3000/roles'] as string[]) || [];
-  const canManage = roles.some(role => ['Admin', 'Organizator', 'Ugostitelj'].includes(role));
+  const canManage = roles.some(role => ['Admin', 'Organizator'].includes(role));
 
   // Opcije za filtere
   const statuses = ["All statuses", ...Array.from(new Set(quizzes.map(q => q.status)))];
@@ -51,11 +51,14 @@ export default function QuizzesClient({ quizzes }: { quizzes: Quiz[] }) {
             Browse events, filter results, and open quiz details.
           </p>
         </div>
-        {canManage && (
-          <button className="rounded-md bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-white hover:brightness-110 transition-all shadow-lg">
-            + Create Quiz
-          </button>
-        )}
+          {canManage && (
+            <Link
+              href="/quiz/create"
+              className="rounded-md bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-white hover:brightness-110 transition-all shadow-lg inline-block"
+            >
+              + Create Quiz
+            </Link>
+          )}
       </section>
 
       {/* FILTER BAR */}

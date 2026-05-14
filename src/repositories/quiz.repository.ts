@@ -99,9 +99,7 @@ export async function getQuizById(id: string): Promise<Quiz | null> {
   }>(query, [Number(id)]);
 
   const row = rows[0];
-  if (!row) {
-    return null;
-  }
+  if (!row) return null;
 
   const timestamp = new Date(row.datum_odrzavanja).toISOString();
 
@@ -120,15 +118,73 @@ export async function getQuizById(id: string): Promise<Quiz | null> {
   };
 }
 
-export async function createQuiz(input: CreateQuizRequest): Promise<Quiz> {
-  // TODO: Replace with real PostgreSQL insert implementation.
+export async function createQuiz(input: any): Promise<Quiz> {
+  const query = `
+    INSERT INTO kvizevent (
+      naziv,
+      opis,
+      datum_odrzavanja,
+      id_kategorija,
+      id_lokacija,
+      trenutni_status,
+      max_timova,
+      kotizacija_po_clanu
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    RETURNING id_kviz
+  `;
+
+  const { rows } = await db.query<{ id_kviz: number }>(query, [
+    input.title,
+    input.description || null,
+    input.scheduledAt,
+    Number(input.categoryId),
+    Number(input.locationId),
+    input.status || "Najavljen",
+    Number(input.maxTeams) || 15,
+    Number(input.entryFee) || 0
+  ]);
+
+  const newId = rows[0].id_kviz;
+
   return {
-    id: "placeholder-id",
+    id: String(newId),
     title: input.title,
     scheduledAt: input.scheduledAt,
     categoryId: input.categoryId,
-    status: "draft",
+    status: mapDbStatusToQuizStatus(input.status as DbQuizStatus || "Najavljen"),
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
+}
+
+export async function updateQuizRepo(id: string, input: any): Promise<void> {
+  const query = `
+    UPDATE kvizevent
+    SET
+      naziv = $1,
+      opis = $2,
+      datum_odrzavanja = $3,
+      id_kategorija = $4,
+      id_lokacija = $5,
+      trenutni_status = $6,
+      max_timova = $7,
+      kotizacija_po_clanu = $8
+    WHERE id_kviz = $9
+  `;
+  await db.query(query, [
+    input.title,
+    input.description || null,
+    input.scheduledAt,
+    Number(input.categoryId),
+    Number(input.locationId),
+    input.status,
+    Number(input.maxTeams),
+    Number(input.entryFee),
+    Number(id)
+  ]);
+}
+
+export async function deleteQuizRepo(id: string): Promise<void> {
+  await db.query(`DELETE FROM kvizevent WHERE id_kviz = $1`, [Number(id)]);
 }
