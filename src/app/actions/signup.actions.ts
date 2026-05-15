@@ -22,7 +22,6 @@ export async function createTeamAndSignupAction(formData: FormData) {
   }
 
   try {
-    // 1. Verify all player IDs exist in igrac
     const playersRes = await db.query(
       `SELECT id_korisnik FROM igrac WHERE id_korisnik = ANY($1::int[])`,
       [numericIds]
@@ -33,7 +32,6 @@ export async function createTeamAndSignupAction(formData: FormData) {
       return redirect(`/quiz/${quizId}?error=invalid_members`);
     }
 
-    // 2. No player may already be on another team for this quiz (clantima.id_igrac stores igrac id)
     const conflictRes = await db.query<{ exists: boolean }>(
       `SELECT EXISTS (
         SELECT 1
@@ -74,7 +72,6 @@ export async function createTeamAndSignupAction(formData: FormData) {
   } catch (error: any) {
     await db.query("ROLLBACK");
     console.error("Signup Error:", error);
-    // If this is already a Next.js redirect, rethrow
     if (error.digest?.includes('NEXT_REDIRECT')) throw error;
     return redirect(`/quiz/${quizId}?error=db_error`);
   }

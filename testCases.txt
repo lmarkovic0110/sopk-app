@@ -1,0 +1,208 @@
+SOPK-APP — PREGLED TESTOVA
+============================
+Ukupno: 9 datoteka, 9 test suiteova, 25 testova (it).
+Pokretanje: npm test
+Integracijski testovi zahtijevaju DATABASE_URL u .env.local; inače se preskaču (describe.skip).
+
+Legenda kategorija:
+  unit-presentation  — React komponente (jsdom, mock Auth0/router)
+  unit-business      — servisi (mock repozitorija, bez baze)
+  unit-data          — repozitoriji (mock db.query, bez baze)
+  integration        — stvarna PostgreSQL; mutacije imaju DELETE u finally
+
+
+================================================================================
+INTEGRATION (tests/integration/)
+================================================================================
+
+--- database-and-api.integration.test.ts ---
+Kategorija: integration
+Suite:     "Integration read from database"
+Baza:      čitanje (SELECT), bez upisa — ponovljivo bez cleanupa
+Uvjet:     DATABASE_URL mora biti postavljen
+
+  Test 1: GET /api/quiz returns 200 and quiz list
+    Funkcionalnost: HTTP API za listu kvizova
+    Slojevi:        app/api/quiz/route → quiz.service → quiz.repository → PostgreSQL
+    Provjera:       status 200, success: true, data je niz
+
+  Test 2: listCategories returns categories from database
+    Funkcionalnost: dohvat kategorija
+    Slojevi:        category.repository → PostgreSQL
+    Provjera:       niz kategorija; svaki element ima string id i name
+
+  Test 3: getQuizById returns null for missing id
+    Funkcionalnost: detalj kviza po ID-u
+    Slojevi:        quiz.repository → PostgreSQL
+    Provjera:       getQuizById("999999999") → null
+
+
+--- db-mutations-cleanup.integration.test.ts ---
+Kategorija: integration
+Suite:     "Integration write and delete"
+Baza:      INSERT + pozivi aplikacijskog koda + DELETE u finally (prijava → tim → kviz → kategorija)
+Uvjet:     DATABASE_URL; signup test treba barem jedan red u igrac i lokacija
+
+  Test 1: inserted category shows in list then gets deleted
+    Funkcionalnost: kategorija u bazi vidljiva kroz repozitorij
+    Slojevi:        SQL INSERT → listCategories() → SQL DELETE
+    Provjera:       umetnuta kategorija (jedinstveni naziv) u listi; cleanup nakon testa
+
+  Test 2: created quiz shows on API then gets deleted
+    Funkcionalnost: kreiranje kviza i vidljivost kroz API
+    Slojevi:        createQuiz (repo) → GET /api/quiz (route → service → repo) → DELETE
+    Provjera:       novi kviz u JSON odgovoru; obrisani kviz i pomoćna kategorija
+
+  Test 3: team signup saves and shows in list then gets deleted
+    Funkcionalnost: prijava tima na kviz
+    Slojevi:        createQuiz → createSignup (service → repo, transakcija) → listSignupsByQuizId → DELETE
+    Provjera:       prijava u listi po teamName i memberCount; cleanup prijava/tim/kviz/kategorija
+
+
+================================================================================
+UNIT — BUSINESS (tests/unit/business/)
+================================================================================
+
+--- quiz.service.test.ts ---
+Kategorija: unit-business
+Suite:     "quiz.service"
+Mock:      cijeli @/repositories/quiz.repository
+
+  Test 1: getAllQuizzes calls listQuizzes
+    Funkcionalnost: dohvat svih kvizova (use case)
+    Provjera:       poziva listQuizzes jednom; vraća isti rezultat
+
+  Test 2: getUpcomingQuizzes sends limit
+    Funkcionalnost: nadolazeći kvizovi s limitom
+    Provjera:       listUpcomingQuizzes(5)
+
+  Test 3: getQuizDetails calls getQuizById
+    Funkcionalnost: detalj kviza po ID-u
+    Provjera:       getQuizById("12")
+
+  Test 4: createQuizUseCase calls createQuiz
+    Funkcionalnost: kreiranje kviza (use case)
+    Provjera:       createQuiz prima isti input; vraća mock rezultat
+
+
+--- signup.service.test.ts ---
+Kategorija: unit-business
+Suite:     "signup.service"
+Mock:      createSignupWithTeam u signup.repository
+
+  Test 1: throws without quizId
+    Funkcionalnost: validacija prijave — obavezan quizId
+    Provjera:       greška "quiz id is required"; repozitorij se ne zove
+
+  Test 2: throws when team name is too short
+    Funkcionalnost: validacija — minimalna duljina imena tima
+    Provjera:       greška oko team name; repozitorij se ne zove
+
+  Test 3: saves signup when input is ok
+    Funkcionalnost: uspješna prijava nakon validacije
+    Provjera:       createSignupWithTeam s ispravnim argumentima; teamName u rezultatu
+
+
+================================================================================
+UNIT — DATA (tests/unit/data/)
+================================================================================
+
+--- category.repository.test.ts ---
+Kategorija: unit-data
+Suite:     "category.repository"
+Mock:      db.query
+
+  Test 1: turns DB row into Category
+    Funkcionalnost: mapiranje SQL reda u Category (id, name, createdAt)
+    Provjera:       id "2", name "History", createdAt je string
+
+  Test 2: returns empty array when no rows
+    Funkcionalnost: prazan rezultat upita
+    Provjera:       []
+
+
+--- quiz.repository.test.ts ---
+Kategorija: unit-data
+Suite:     "quiz.repository"
+Mock:      db.query
+
+  Test 1: Najavljen becomes draft
+    Funkcionalnost: mapiranje DB statusa i polja kviza
+    Provjera:       status draft, title, entryFeePerMember broj
+
+  Test 2: U tijeku becomes published
+    Funkcionalnost: drugi DB status; null kategorija/lokacija
+    Provjera:       status published, categoryId ""
+
+
+--- signup.repository.test.ts ---
+Kategorija: unit-data
+Suite:     "signup.repository"
+Mock:      db.query
+
+  Test 1: sends quiz id and trimmed search to SQL
+    Funkcionalnost: parametri SQL upita (quiz id, trim pretrage)
+    Provjera:       params [42, "alpha"]
+
+  Test 2: turns join into Signup object
+    Funkcionalnost: mapiranje prijava + tim u Signup
+    Provjera:       id, teamName, memberCount
+
+
+================================================================================
+UNIT — PRESENTATION (tests/unit/presentation/)
+================================================================================
+
+--- auth-status.test.tsx ---
+Kategorija: unit-presentation
+Suite:     "AuthStatus"
+Okolina:   jsdom
+Mock:      @auth0/nextjs-auth0/client (useUser)
+
+  Test 1: shows loading while auth loads
+    Funkcionalnost: stanje učitavanja Auth0
+    Provjera:       element s klasom animate-pulse
+
+  Test 2: shows name and Log out when logged in
+    Funkcionalnost: prijavljen korisnik
+    Provjera:       nickname na ekranu; link Log out → /api/auth/logout
+
+  Test 3: shows Log in and Sign up when logged out
+    Funkcionalnost: neprijavljen korisnik
+    Provjera:       linkovi Log in i Sign up s ispravnim href
+
+
+--- role-section.test.tsx ---
+Kategorija: unit-presentation
+Suite:     "RoleSection"
+Okolina:   jsdom
+Mock:      useUser (Auth0), useRouter (next/navigation)
+
+  Test 1: shows homepage title
+    Funkcionalnost: početna hero sekcija (bez obzira na ulogu)
+    Provjera:       heading "Discover, host, and join quiz events."
+
+  Test 2: Admin sees create buttons
+    Funkcionalnost: Admin vidi akcije kreiranja
+    Provjera:       gumbi Create Quiz i Create Location
+
+  Test 3: Player does not see create buttons
+    Funkcionalnost: Player ne vidi admin/organizer gumbe
+    Provjera:       Create Quiz nije u dokumentu
+
+
+================================================================================
+SAŽETAK PO KATEGORIJAMA (zadatak: odvojeni slojevi + integracija)
+================================================================================
+
+  unit-presentation   2 suitea,  6 testova   AuthStatus, RoleSection (UI + Auth0 uloge)
+  unit-business       2 suitea,  7 testova   quiz.service, signup.service (validacija + pozivi repozitorija)
+  unit-data           3 suitea,  6 testova   category/quiz/signup repozitoriji (mapiranje SQL → objekti)
+  integration         2 suitea,  6 testova   API + repo + PG; mutacije s DELETE cleanup
+
+Pokrivenost slojeva u produkcijskom kodu (bez test-only stubova):
+  Prezentacija:     AuthStatus (layout), RoleSection (početna)
+  Poslovni:         quiz.service, signup.service
+  Podaci:           category, quiz, signup repozitoriji
+  Integracija:      povezivanje API <> servis <> repozitorij <> PostgreSQL
+
